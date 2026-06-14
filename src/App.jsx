@@ -13,6 +13,17 @@ const TYPE_LABEL = { vocab: "単語", grammar: "文法", trivia: "雑学", geogr
 const TYPE_COLOR = { vocab: "#38bdf8", grammar: "#a78bfa", trivia: "#fb923c", geography: "#4ade80" };
 const MEDALS = ["🥇", "🥈", "🥉"];
 
+const LOADING_TIPS = [
+  "💡「i.e.」は「つまり」、「e.g.」は「例えば」という意味。どちらもラテン語が語源。",
+  "🍊 みかんの生産量上位3県は和歌山・愛媛・静岡。太平洋側に集中している。",
+  "📚 英語の現在形は「今この瞬間」より「習慣・事実」に使うことが多い。",
+  "🗻 都道府県で最も面積が小さいのは香川県。",
+  "✈️「airport」は「空気(air)」＋「港(port)」。portはラテン語で「運ぶ場所」。",
+  "🌾 新潟県は米の生産量が全国トップクラス。雪解け水と昼夜の温度差が決め手。",
+  "🔤 英語のアルファベットは26文字だが、発音記号は約44種類ある。",
+  "🏔️ 山に囲まれた内陸県は、夏と冬の気温差が大きくなりやすい。",
+];
+
 function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
 function today() { return new Date().toISOString().slice(0, 10); }
 
@@ -70,6 +81,10 @@ export default function QuizGame() {
   const [submitted, setSubmitted] = useState(false);
   const [genError, setGenError] = useState(false);
   const [tab, setTab] = useState("home");
+  const [loadingTip, setLoadingTip] = useState(0);
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const [prefetched, setPrefetched] = useState(null);
+  const prefetchingRef = useRef(false);
   const timerRef = useRef(null);
   const sessionStart = useRef(null);
 
@@ -87,7 +102,7 @@ export default function QuizGame() {
     setPhase("idle");
   }, []);
 
-  useEffect(() => {
+    useEffect(() => {
     if (phase === "playing") {
       timerRef.current = setInterval(() => {
         setTimeLeft(t => {
@@ -99,7 +114,31 @@ export default function QuizGame() {
     return () => clearInterval(timerRef.current);
   }, [phase]);
 
-  const startGame = async (useExisting = false) => {
+  // 生成中のローディング表示（経過時間＋豆知識の切り替え）
+  useEffect(() => {
+    if (phase !== "generating") return;
+    setElapsedSec(0);
+    setLoadingTip(Math.floor(Math.random() * LOADING_TIPS.length));
+    const tick = setInterval(() => setElapsedSec(s => s + 1), 1000);
+    const tipTick = setInterval(() => setLoadingTip(t => (t + 1) % LOADING_TIPS.length), 4000);
+    return () => { clearInterval(tick); clearInterval(tipTick); };
+  }, [phase]);
+
+  // allQuestionsの最新値を常に参照できるようにする
+  const allQuestionsRef = useRef(allQuestions);
+  useEffect(() => { allQuestionsRef.current = allQuestions; }, [allQuestions]);
+
+  // プレイ中に裏で次の問題セットを準備しておく
+  useEffect(() => {
+    if (phase !== "playing" || prefetched || prefetchingRef.current) return;
+    prefetchingRef.current = true;
+    generateQuestions(allQuestionsRef.current)
+      .then(newQs => setPrefetched(newQs))
+      .catch(() => setPrefetched(null))
+      .finally(() => { prefetchingRef.current = false; });
+  }, [phase]);
+
+    const startGame = async (useExisting = false) => {
     clearInterval(timerRef.current);
     setGenError(false);
     sessionStart.current = Date.now();
@@ -109,6 +148,19 @@ export default function QuizGame() {
       const qs = shuffle(allQuestions).slice(0, 10).map(q => ({ ...q, choices: shuffle(q.choices) }));
       setQuestions(qs); reset(); return;
     }
+
+    // 裏で準備済みの問題があれば、待たずにすぐ使う
+    if (prefetched) {
+      const combined = [...allQuestions, ...prefetched];
+      setAllQuestions(combined);
+      lsSet("quiz-questions", combined);
+      const qs = shuffle(prefetched).slice(0, 10).map(q => ({ ...q, choices: shuffle(q.choices) }));
+      setQuestions(qs);
+      setPrefetched(null);
+      reset();
+      return;
+    }
+
     setPhase("generating");
     try {
       const newQs = await generateQuestions(allQuestions);
@@ -199,12 +251,23 @@ export default function QuizGame() {
         </div>
       )}
 
-      {phase === "generating" && (
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 36, marginBottom: 16, display: "inline-block", animation: "spin 1s linear infinite" }}>⚙️</div>
-          <div style={{ fontSize: 15, color: "#94a3b8" }}>AIが新しい問題を作成中…</div>
+            {phase === "generating" && (
+        <div style={{ width: "100%", maxWidth: 380, textAlign: "center" }}>
+          <div style={{ fontSize: 36, marginBottom: 12, display: "inline-block", animation: "spin 1.2s linear infinite" }}>⚙️</div>
+          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>AIが新しい問題を作成中…</div>
+          <div style={{ fontSize: 12, color: "#475569", marginBottom: 20 }}>{elapsedSec}秒経過（通常15〜20秒程度）</div>
+
+          <div style={{ background: "#1e293b", borderRadius: 4, height: 4, marginBottom: 20, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${Math.min((elapsedSec / 18) * 100, 95)}%`, background: "linear-gradient(90deg, #34d399, #38bdf8)", transition: "width 1s linear", borderRadius: 4 }} />
+          </div>
+
+          <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 14, padding: "16px", textAlign: "left", minHeight: 90 }}>
+            <div style={{ fontSize: 10, color: "#475569", letterSpacing: 2, marginBottom: 8 }}>待っている間に…</div>
+            <div style={{ fontSize: 13, color: "#cbd5e1", lineHeight: 1.7 }}>{LOADING_TIPS[loadingTip]}</div>
+          </div>
         </div>
       )}
+      
             {(phase === "idle" || phase === "result") && tab === "home" && (
         <div style={{ width: "100%", maxWidth: 420 }}>
           {phase === "result" && (
@@ -240,7 +303,8 @@ export default function QuizGame() {
             </div>
           )}
 
-          {genError && <div style={{ color: "#f87171", fontSize: 12, marginBottom: 10, textAlign: "center" }}>⚠️ AI生成に失敗。既存問題で開始します</div>}
+                    {genError && <div style={{ color: "#f87171", fontSize: 12, marginBottom: 10, textAlign: "center" }}>⚠️ AI生成に失敗。既存問題で開始します</div>}
+          {prefetched && <div style={{ color: "#34d399", fontSize: 12, marginBottom: 10, textAlign: "center" }}>✓ 新しい問題の準備が完了しています</div>}
           <button onClick={() => startGame(false)} style={{ ...primaryBtn("#059669", "#0891b2"), width: "100%", marginBottom: 10 }}>AIで新しい問題を生成 ✨</button>
           <button onClick={() => startGame(true)} style={{ width: "100%", background: "transparent", border: "1px solid #334155", borderRadius: 10, color: "#94a3b8", fontSize: 13, padding: "12px", cursor: "pointer" }}>既存の問題でプレイ（{allQuestions.length}問）</button>
         </div>
