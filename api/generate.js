@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   const usedVocab = existingQuestions.filter(q => q.type === "vocab").map(q => q.en).join(", ");
   const usedGrammar = existingQuestions.filter(q => q.type === "grammar").map(q => q.question?.slice(0, 20)).join("; ");
 
-    const prompt = `あなたはLumo Atlasという知識クイズアプリの問題作成者です。新しいクイズ問題を8問生成してください。単語(vocab)2問、文法(grammar)2問、英語雑学(trivia)2問、日本地理(geography)2問。既出単語: ${usedVocab || "なし"}。既出文法: ${usedGrammar || "なし"}。被らないこと。4択で答えは1つ。
+  const prompt = `あなたはLumo Atlasという知識クイズアプリの問題作成者です。新しいクイズ問題を8問生成してください。単語(vocab)2問、文法(grammar)2問、英語雑学(trivia)2問、日本地理(geography)2問。既出単語: ${usedVocab || "なし"}。既出文法: ${usedGrammar || "なし"}。被らないこと。4択で答えは1つ。
 
 【地理問題(geography)の作り方】
 - 「〇〇の生産量・出荷数・観光客数などが1位の都道府県は？」形式
