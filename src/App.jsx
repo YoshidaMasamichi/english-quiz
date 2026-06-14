@@ -412,7 +412,7 @@ export default function QuizGame() {
   );
 }
 
-const pageStyle = { minHeight: "100vh", background: "#080c14", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'Helvetica Neue', sans-serif", color: "#e2e8f0", padding: "20px", boxSizing: "border-box" };
+const pageStyle = { minHeight: "100vh", background: "#080c14", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", fontFamily: "'Helvetica Neue', sans-serif", color: "#e2e8f0", padding: "20px 20px 100px 20px", boxSizing: "border-box" };
 function primaryBtn(c1, c2) {
   return { background: `linear-gradient(135deg, ${c1}, ${c2})`, border: "none", borderRadius: 10, color: "#fff", fontSize: 15, fontWeight: 700, padding: "14px 32px", cursor: "pointer", letterSpacing: 1 };
 }
