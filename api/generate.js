@@ -8,14 +8,23 @@ export default async function handler(req, res) {
   const usedVocab = existingQuestions.filter(q => q.type === "vocab").map(q => q.en).join(", ");
   const usedGrammar = existingQuestions.filter(q => q.type === "grammar").map(q => q.question?.slice(0, 20)).join("; ");
 
-  const prompt = `あなたは英語学習クイズの問題作成者です。学校・勉強をテーマにした新しい英語クイズ問題を6問生成してください。単語(vocab)2問、文法(grammar)2問、雑学(trivia)2問。既出単語: ${usedVocab || "なし"}。既出文法: ${usedGrammar || "なし"}。被らないこと。4択で答えは1つ。
+    const prompt = `あなたはLumo Atlasという知識クイズアプリの問題作成者です。新しいクイズ問題を8問生成してください。単語(vocab)2問、文法(grammar)2問、英語雑学(trivia)2問、日本地理(geography)2問。既出単語: ${usedVocab || "なし"}。既出文法: ${usedGrammar || "なし"}。被らないこと。4択で答えは1つ。
 
-【重要なルール】
+【地理問題(geography)の作り方】
+- 「〇〇の生産量・出荷数・観光客数などが1位の都道府県は？」形式
+- 対象は農産物・工業製品・観光・特産品など何でもよい
+- explanationは必ず3層構造で書く：
+  1. 答えとなる都道府県の直接的な理由（気候・地形・歴史など）
+  2. その理由を支える、より広い地域・地方レベルの背景（なぜその地方全体が向いているか）
+  両方を1つの文章として自然につなげる
+- triviaにはシェア率や意外な事実を入れる
+
+【共通ルール】
 - 必ず1行のJSON配列のみを返す（改行・コードブロック・前置き不要）
 - 文章中に "（ダブルクオート）は使わない。引用が必要な場合は「」を使う
-- explanationは日本語で丁寧に、triviaは絵文字つきの豆知識
+- vocab/grammar/triviaのexplanationは日本語で丁寧に、triviaフィールドは絵文字つきの豆知識
 
-[{"type":"vocab","en":"英単語","choices":["正解","不正解1","不正解2","不正解3"],"answer":"正解","explanation":"解説","trivia":"😊 豆知識"},{"type":"grammar","question":"問題文","choices":["正解","不正解1","不正解2","不正解3"],"answer":"正解","explanation":"解説","trivia":"😊 豆知識"},{"type":"trivia","question":"問題文","choices":["正解","不正解1","不正解2","不正解3"],"answer":"正解","explanation":"解説","trivia":"😊 豆知識"}]`;
+[{"type":"vocab","en":"英単語","choices":["正解","不正解1","不正解2","不正解3"],"answer":"正解","explanation":"解説","trivia":"😊 豆知識"},{"type":"grammar","question":"問題文","choices":["正解","不正解1","不正解2","不正解3"],"answer":"正解","explanation":"解説","trivia":"😊 豆知識"},{"type":"trivia","question":"問題文","choices":["正解","不正解1","不正解2","不正解3"],"answer":"正解","explanation":"解説","trivia":"😊 豆知識"},{"type":"geography","question":"〇〇の生産量1位の都道府県は？","choices":["正解","不正解1","不正解2","不正解3"],"answer":"正解","explanation":"県レベルの理由＋地方レベルの背景をつなげた解説","trivia":"😊 シェア率などの豆知識"}]`;
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
