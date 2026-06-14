@@ -3,12 +3,22 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { existingQuestions } = req.body;
+  const { existingQuestions, genre = "mix" } = req.body;
 
   const usedVocab = existingQuestions.filter(q => q.type === "vocab").map(q => q.en).join(", ");
   const usedGrammar = existingQuestions.filter(q => q.type === "grammar").map(q => q.question?.slice(0, 20)).join("; ");
+  const usedGeo = existingQuestions.filter(q => q.type === "geography").map(q => q.question?.slice(0, 25)).join("; ");
 
-  const prompt = `あなたはLumo Atlasという知識クイズアプリの問題作成者です。新しいクイズ問題を8問生成してください。単語(vocab)2問、文法(grammar)2問、英語雑学(trivia)2問、日本地理(geography)2問。既出単語: ${usedVocab || "なし"}。既出文法: ${usedGrammar || "なし"}。被らないこと。4択で答えは1つ。
+  let distribution;
+  if (genre === "english") {
+    distribution = "単語(vocab)3問、文法(grammar)3問、英語雑学(trivia)2問。地理問題は含めないこと。";
+  } else if (genre === "geography") {
+    distribution = "日本地理(geography)8問のみ。英語の問題は含めないこと。";
+  } else {
+    distribution = "単語(vocab)2問、文法(grammar)2問、英語雑学(trivia)2問、日本地理(geography)2問。";
+  }
+
+  const geoSection = genre !== "english" ? `
 
 【地理問題(geography)の作り方】
 - 「〇〇の生産量・出荷数・観光客数などが1位の都道府県は？」形式
@@ -18,6 +28,9 @@ export default async function handler(req, res) {
   2. その理由を支える、より広い地域・地方レベルの背景（なぜその地方全体が向いているか）
   両方を1つの文章として自然につなげる
 - triviaにはシェア率や意外な事実を入れる
+- 既出の地理問題: ${usedGeo || "なし"}` : "";
+
+  const prompt = `あなたはLumo Atlasという知識クイズアプリの問題作成者です。新しいクイズ問題を8問生成してください。${distribution}既出単語: ${usedVocab || "なし"}。既出文法: ${usedGrammar || "なし"}。被らないこと。4択で答えは1つ。${geoSection}
 
 【共通ルール】
 - 必ず1行のJSON配列のみを返す（改行・コードブロック・前置き不要）
@@ -58,7 +71,6 @@ export default async function handler(req, res) {
     }
 
     let clean = text.slice(start, end + 1);
-    // JSON内の生の改行・タブを除去（AIが文章中に改行を入れてしまうのを防ぐ）
     clean = clean.replace(/[\r\n\t]+/g, " ");
 
     let questions;
