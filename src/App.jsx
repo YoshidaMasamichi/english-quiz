@@ -13,6 +13,12 @@ const TYPE_LABEL = { vocab: "単語", grammar: "文法", trivia: "雑学", geogr
 const TYPE_COLOR = { vocab: "#38bdf8", grammar: "#a78bfa", trivia: "#fb923c", geography: "#4ade80" };
 const MEDALS = ["🥇", "🥈", "🥉"];
 
+const GENRES = {
+  mix: { label: "ミックス", desc: "英語＋地理", types: ["vocab", "grammar", "trivia", "geography"] },
+  english: { label: "英語のみ", desc: "単語・文法・雑学", types: ["vocab", "grammar", "trivia"] },
+  geography: { label: "地理のみ", desc: "都道府県クイズ", types: ["geography"] },
+};
+
 const LOADING_TIPS = [
   "💡「i.e.」は「つまり」、「e.g.」は「例えば」という意味。どちらもラテン語が語源。",
   "🍊 みかんの生産量上位3県は和歌山・愛媛・静岡。太平洋側に集中している。",
@@ -34,11 +40,11 @@ function lsSet(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
 }
 
-async function generateQuestions(existingQuestions) {
+async function generateQuestions(existingQuestions, genre) {
   const res = await fetch("/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ existingQuestions }),
+    body: JSON.stringify({ existingQuestions, genre }),
   });
   if (!res.ok) throw new Error("Failed");
   const data = await res.json();
@@ -81,6 +87,7 @@ export default function QuizGame() {
   const [submitted, setSubmitted] = useState(false);
   const [genError, setGenError] = useState(false);
   const [tab, setTab] = useState("home");
+  const [genre, setGenre] = useState("mix");
   const [loadingTip, setLoadingTip] = useState(0);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [prefetched, setPrefetched] = useState(null);
@@ -128,33 +135,46 @@ export default function QuizGame() {
   const allQuestionsRef = useRef(allQuestions);
   useEffect(() => { allQuestionsRef.current = allQuestions; }, [allQuestions]);
 
+    // ジャンルを切り替えたら、古いプリフェッチ結果は破棄する
+  useEffect(() => {
+    setPrefetched(null);
+  }, [genre]);
+
   // プレイ中に裏で次の問題セットを準備しておく
   useEffect(() => {
     if (phase !== "playing" || prefetched || prefetchingRef.current) return;
     prefetchingRef.current = true;
-    generateQuestions(allQuestionsRef.current)
-      .then(newQs => setPrefetched(newQs))
+    const targetGenre = genre;
+    generateQuestions(allQuestionsRef.current, targetGenre)
+      .then(newQs => setPrefetched({ genre: targetGenre, questions: newQs }))
       .catch(() => setPrefetched(null))
       .finally(() => { prefetchingRef.current = false; });
   }, [phase]);
 
-    const startGame = async (useExisting = false) => {
+      const startGame = async (useExisting = false) => {
     clearInterval(timerRef.current);
     setGenError(false);
     sessionStart.current = Date.now();
     setSubmitted(false);
 
+    const allowedTypes = GENRES[genre].types;
+    const pickFallback = () => {
+      const pool = allQuestions.filter(q => allowedTypes.includes(q.type));
+      const source = pool.length >= 4 ? pool : allQuestions;
+      return shuffle(source).slice(0, 10).map(q => ({ ...q, choices: shuffle(q.choices) }));
+    };
+
     if (useExisting) {
-      const qs = shuffle(allQuestions).slice(0, 10).map(q => ({ ...q, choices: shuffle(q.choices) }));
-      setQuestions(qs); reset(); return;
+      setQuestions(pickFallback()); reset(); return;
     }
 
-    // 裏で準備済みの問題があれば、待たずにすぐ使う
-    if (prefetched) {
-      const combined = [...allQuestions, ...prefetched];
+    // 裏で準備済みの問題（同じジャンル）があれば、待たずにすぐ使う
+    if (prefetched && prefetched.genre === genre) {
+      const newQs = prefetched.questions;
+      const combined = [...allQuestions, ...newQs];
       setAllQuestions(combined);
       lsSet("quiz-questions", combined);
-      const qs = shuffle(prefetched).slice(0, 10).map(q => ({ ...q, choices: shuffle(q.choices) }));
+      const qs = shuffle(newQs).slice(0, 10).map(q => ({ ...q, choices: shuffle(q.choices) }));
       setQuestions(qs);
       setPrefetched(null);
       reset();
@@ -163,7 +183,7 @@ export default function QuizGame() {
 
     setPhase("generating");
     try {
-      const newQs = await generateQuestions(allQuestions);
+      const newQs = await generateQuestions(allQuestions, genre);
       const combined = [...allQuestions, ...newQs];
       setAllQuestions(combined);
       lsSet("quiz-questions", combined);
@@ -171,8 +191,7 @@ export default function QuizGame() {
       setQuestions(qs); reset();
     } catch {
       setGenError(true);
-      const qs = shuffle(allQuestions).slice(0, 10).map(q => ({ ...q, choices: shuffle(q.choices) }));
-      setQuestions(qs); reset();
+      setQuestions(pickFallback()); reset();
     }
   };
 
@@ -303,10 +322,29 @@ export default function QuizGame() {
             </div>
           )}
 
-                    {genError && <div style={{ color: "#f87171", fontSize: 12, marginBottom: 10, textAlign: "center" }}>⚠️ AI生成に失敗。既存問題で開始します</div>}
-          {prefetched && <div style={{ color: "#34d399", fontSize: 12, marginBottom: 10, textAlign: "center" }}>✓ 新しい問題の準備が完了しています</div>}
+            <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 10, color: "#475569", letterSpacing: 3, marginBottom: 8 }}>ジャンル</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {Object.entries(GENRES).map(([key, g]) => (
+                <button key={key} onClick={() => setGenre(key)} style={{
+                  flex: 1,
+                  background: genre === key ? "#0f2318" : "#0f172a",
+                  border: `1px solid ${genre === key ? "#34d399" : "#1e293b"}`,
+                  borderRadius: 12, padding: "10px 6px", cursor: "pointer",
+                  color: genre === key ? "#34d399" : "#94a3b8",
+                  textAlign: "center",
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{g.label}</div>
+                  <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>{g.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {genError && <div style={{ color: "#f87171", fontSize: 12, marginBottom: 10, textAlign: "center" }}>⚠️ AI生成に失敗。既存問題で開始します</div>}
+          {prefetched && prefetched.genre === genre && <div style={{ color: "#34d399", fontSize: 12, marginBottom: 10, textAlign: "center" }}>✓ 新しい問題の準備が完了しています</div>}
           <button onClick={() => startGame(false)} style={{ ...primaryBtn("#059669", "#0891b2"), width: "100%", marginBottom: 10 }}>AIで新しい問題を生成 ✨</button>
-          <button onClick={() => startGame(true)} style={{ width: "100%", background: "transparent", border: "1px solid #334155", borderRadius: 10, color: "#94a3b8", fontSize: 13, padding: "12px", cursor: "pointer" }}>既存の問題でプレイ（{allQuestions.length}問）</button>
+          <button onClick={() => startGame(true)} style={{ width: "100%", background: "transparent", border: "1px solid #334155", borderRadius: 10, color: "#94a3b8", fontSize: 13, padding: "12px", cursor: "pointer" }}>既存の問題でプレイ（{allQuestions.filter(q => GENRES[genre].types.includes(q.type)).length}問）</button>
         </div>
       )}
 
@@ -330,6 +368,7 @@ export default function QuizGame() {
           ))}
         </div>
       )}
+
       {(phase === "idle" || phase === "result") && tab === "history" && (
         <div style={{ width: "100%", maxWidth: 420 }}>
           {history.length === 0 ? (
@@ -352,6 +391,7 @@ export default function QuizGame() {
       )}
 
       {phase === "playing" && q && (
+
         <div style={{ width: "100%", maxWidth: 460 }}>
           <div style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, fontSize: 11, color: "#475569" }}>
