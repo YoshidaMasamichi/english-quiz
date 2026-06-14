@@ -4,12 +4,13 @@ const SEED_QUESTIONS = [
   { type: "vocab", en: "pencil", choices: ["鉛筆", "消しゴム", "定規", "ノート"], answer: "鉛筆", explanation: "pencil は「鉛筆」。ラテン語の peniculus が語源。", trivia: "🖊️ 鉛筆1本で書ける線の長さは約50km！" },
   { type: "vocab", en: "homework", choices: ["授業", "宿題", "試験", "成績"], answer: "宿題", explanation: "home（家）+ work（仕事）で、家でやる仕事という意味。", trivia: "📚 フィンランドでは宿題がほぼなく、世界トップクラスの学力！" },
   { type: "grammar", question: "「私は毎日学校へ行きます」の英訳は？", choices: ["I go to school every day.", "I went to school every day.", "I am going to school every day.", "I goes to school every day."], answer: "I go to school every day.", explanation: "習慣には現在形。主語が I なので goes ではなく go。", trivia: "🔄 英語の現在形は習慣・事実に使うことが多い！" },
-  { type: "trivia", question: "英語で「カンニング」は何という？", choices: ["cunning", "cheating", "copying", "stealing"], answer: "cheating", explanation: "日本語の「カンニング」は和製英語！英語では cheating という。", trivia: "😅 「ノートパソコン」→ laptop など和製英語は多数！" },
+    { type: "trivia", question: "英語で「カンニング」は何という？", choices: ["cunning", "cheating", "copying", "stealing"], answer: "cheating", explanation: "日本語の「カンニング」は和製英語！英語では cheating という。", trivia: "😅 「ノートパソコン」→ laptop など和製英語は多数！" },
+  { type: "geography", question: "みかんの生産量1位の都道府県は？", choices: ["和歌山県", "愛媛県", "静岡県", "長崎県"], answer: "和歌山県", explanation: "和歌山県は南向きの段々畑が多く、太陽光と海面反射の両方を受けられる。さらに黒潮の影響で冬も温暖で霜が少ない。実はこの「黒潮＋南向き斜面」という条件は、愛媛・静岡など太平洋側の産地全体に共通する強みでもある。", trivia: "🍊 和歌山・愛媛・静岡の上位3県で全国生産量の約半分を占める" },
 ];
 
 const TOTAL_TIME = 60;
-const TYPE_LABEL = { vocab: "単語", grammar: "文法", trivia: "雑学" };
-const TYPE_COLOR = { vocab: "#38bdf8", grammar: "#a78bfa", trivia: "#fb923c" };
+const TYPE_LABEL = { vocab: "単語", grammar: "文法", trivia: "雑学", geography: "地理" };
+const TYPE_COLOR = { vocab: "#38bdf8", grammar: "#a78bfa", trivia: "#fb923c", geography: "#4ade80" };
 const MEDALS = ["🥇", "🥈", "🥉"];
 
 function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
@@ -185,8 +186,8 @@ export default function QuizGame() {
   return (
     <div style={pageStyle}>
       <div style={{ marginBottom: 18, textAlign: "center" }}>
-        <div style={{ fontSize: 10, letterSpacing: 6, color: "#475569", marginBottom: 4 }}>AI ENGLISH QUIZ</div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: "#f8fafc" }}>英語トレーニング</div>
+        <div style={{ fontSize: 10, letterSpacing: 6, color: "#475569", marginBottom: 4 }}>LUMO ATLAS</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "#f8fafc" }}>Lumo Atlas</div>
         {playerName && <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>👤 {playerName}{myRank > 0 ? `　🏆 ${myRank}位` : ""}</div>}
       </div>
 
